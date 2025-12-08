@@ -1,1 +1,22 @@
+# Archivos de texto de prueba
 text1.txt
+*.txt
+
+# Archivos compilados de Java
+*.class
+*.jar
+*.war
+*.ear
+
+# Archivos de log
+*.log
+
+# Archivos temporales
+*.tmp
+*.swp
+*~
+
+# Directorios de IDE
+.idea/
+.vscode/
+*.iml
