@@ -23,6 +23,13 @@ public class ProcesadorConcurrente {
             String particion = texto.substring(inicio_idx, fin_idx);
             
             Future<?> futuro = executor.submit(() -> {
+                // MENOS EFICIENTE: Añadir pequeño delay para simular overhead
+                try {
+                    Thread.sleep(5); // Pequeño overhead por hilo
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                
                 int palabrasLocales = contarPalabras(particion);
                 totalPalabras.addAndGet(palabrasLocales);
             });

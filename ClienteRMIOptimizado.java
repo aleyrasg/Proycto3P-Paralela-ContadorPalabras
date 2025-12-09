@@ -5,11 +5,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 public class ClienteRMIOptimizado {
-    private static final int MAX_REINTENTOS = 3;
-    private static final int TIMEOUT_SEGUNDOS = 30;
+    private static final int MAX_REINTENTOS = 2; // Reducir reintentos para ganar velocidad
+    private static final int TIMEOUT_SEGUNDOS = 20; // Reducir timeout
     
     private final ConfiguracionServidor config;
     private IContadorRemoto servicio;
+    private Registry registry;
 
     public ClienteRMIOptimizado(ConfiguracionServidor config) throws Exception {
         this.config = config;
@@ -17,7 +18,10 @@ public class ClienteRMIOptimizado {
     }
 
     private void conectar() throws Exception {
-        Registry registry = LocateRegistry.getRegistry(config.getHost(), config.getPuerto());
+        // OPTIMIZACIÓN: Cachear el registry
+        if (registry == null) {
+            registry = LocateRegistry.getRegistry(config.getHost(), config.getPuerto());
+        }
         servicio = (IContadorRemoto) registry.lookup("ContadorRemoto");
     }
 
@@ -25,9 +29,9 @@ public class ClienteRMIOptimizado {
         return CompletableFuture.supplyAsync(() -> {
             for (int intento = 1; intento <= MAX_REINTENTOS; intento++) {
                 try {
-                    long inicio = System.currentTimeMillis();
+                    long inicio = System.nanoTime(); // Usar nanoTime para mayor precisión
                     int resultado = servicio.contarPalabras(lineas);
-                    long tiempo = System.currentTimeMillis() - inicio;
+                    long tiempo = (System.nanoTime() - inicio) / 1_000_000; // Convertir a ms
                     return new ResultadoProcesamiento(config.getNombre(), resultado, tiempo);
                 } catch (Exception e) {
                     if (intento == MAX_REINTENTOS) {
@@ -35,7 +39,7 @@ public class ClienteRMIOptimizado {
                             "Error después de " + MAX_REINTENTOS + " intentos: " + e.getMessage());
                     }
                     try {
-                        Thread.sleep(1000 * intento);
+                        Thread.sleep(500 * intento); // Menos espera entre reintentos
                         conectar();
                     } catch (Exception ex) {
                         // Continuar con siguiente intento
@@ -52,9 +56,9 @@ public class ClienteRMIOptimizado {
         return CompletableFuture.supplyAsync(() -> {
             for (int intento = 1; intento <= MAX_REINTENTOS; intento++) {
                 try {
-                    long inicio = System.currentTimeMillis();
+                    long inicio = System.nanoTime(); // Usar nanoTime para mayor precisión
                     int resultado = servicio.contarPalabrasTexto(texto);
-                    long tiempo = System.currentTimeMillis() - inicio;
+                    long tiempo = (System.nanoTime() - inicio) / 1_000_000; // Convertir a ms
                     return new ResultadoProcesamiento(config.getNombre(), resultado, tiempo);
                 } catch (Exception e) {
                     if (intento == MAX_REINTENTOS) {
@@ -62,7 +66,7 @@ public class ClienteRMIOptimizado {
                             "Error después de " + MAX_REINTENTOS + " intentos: " + e.getMessage());
                     }
                     try {
-                        Thread.sleep(1000 * intento);
+                        Thread.sleep(500 * intento); // Menos espera entre reintentos
                         conectar();
                     } catch (Exception ex) {
                         // Continuar con siguiente intento

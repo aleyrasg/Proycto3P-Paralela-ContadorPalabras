@@ -372,28 +372,18 @@ public class VentanaComparativa extends JFrame {
     }
     
     private ResultadoProcesamiento ejecutarParalelo(String contenido) throws Exception {
-        long inicio = System.currentTimeMillis();
+        long inicio = System.nanoTime(); // Usar nanoTime para mejor precisión
         
-        List<String> particiones = dividirTrabajoPorBytes(contenido, servidores.size());
+        // OPTIMIZACIÓN: Usar menos particiones para reducir overhead de comunicación
+        // Enviar chunks más grandes a cada servidor
+        int numServidores = servidores.size();
+        List<String> particiones = dividirTrabajoPorBytes(contenido, numServidores);
         List<CompletableFuture<ResultadoProcesamiento>> tareas = new ArrayList<>();
         
-        // Distribuir particiones entre servidores disponibles
-        int numServidores = servidores.size();
-        int particionesPorServidor = (int) Math.ceil((double) particiones.size() / numServidores);
-        
-        for (int i = 0; i < numServidores && i * particionesPorServidor < particiones.size(); i++) {
+        // OPTIMIZACIÓN: Distribuir una partición grande por servidor (en lugar de múltiples pequeñas)
+        for (int i = 0; i < numServidores && i < particiones.size(); i++) {
             ConfiguracionServidor servidor = servidores.get(i);
-            int inicioParticion = i * particionesPorServidor;
-            int finParticion = Math.min(inicioParticion + particionesPorServidor, particiones.size());
-            
-            // Combinar múltiples particiones para este servidor si es necesario
-            StringBuilder textoServidor = new StringBuilder();
-            for (int j = inicioParticion; j < finParticion; j++) {
-                textoServidor.append(particiones.get(j));
-            }
-            
-            String particion = textoServidor.toString();
-            int index = i;
+            String particion = particiones.get(i);
             
             actualizarTablaHilos("Paralelo-RMI", servidor.getNombre(), "🔄 Conectando", 
                 String.format("%,d bytes", particion.length()), "0%");
@@ -431,7 +421,7 @@ public class VentanaComparativa extends JFrame {
             .mapToInt(ResultadoProcesamiento::getPalabras)
             .sum();
         
-        long tiempo = System.currentTimeMillis() - inicio;
+        long tiempo = (System.nanoTime() - inicio) / 1_000_000; // Convertir a ms
         return new ResultadoProcesamiento("Paralelo (" + servidores.size() + " servidores RMI)", 
                                          totalPalabras, tiempo);
     }
@@ -440,8 +430,8 @@ public class VentanaComparativa extends JFrame {
         List<String> particiones = new ArrayList<>();
         int tamañoTotal = contenido.length();
         
-        // Limitar tamaño máximo por partición (1MB)
-        int MAX_CHUNK = 1024 * 1024;
+        // OPTIMIZACIÓN: Aumentar MAX_CHUNK para enviar menos llamadas RMI
+        int MAX_CHUNK = 5 * 1024 * 1024; // 5MB en lugar de 1MB
         int tamañoParticion = Math.min(tamañoTotal / numParticiones, MAX_CHUNK);
         
         // Si el tamaño es muy grande, ajustar número de particiones
