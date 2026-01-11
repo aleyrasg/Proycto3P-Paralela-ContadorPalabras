@@ -5,4 +5,6 @@ import java.util.List;
 public interface IContadorRemoto extends Remote {
     int contarPalabras(List<String> lineas) throws RemoteException;
     int contarPalabrasTexto(String texto) throws RemoteException;
+    // NUEVO: Método optimizado con compresión
+    int contarPalabrasComprimido(byte[] textoComprimido) throws RemoteException;
 }

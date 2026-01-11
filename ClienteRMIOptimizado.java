@@ -3,14 +3,17 @@ import java.rmi.registry.Registry;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.io.ByteArrayOutputStream;
+import java.util.zip.GZIPOutputStream;
 
 public class ClienteRMIOptimizado {
-    private static final int MAX_REINTENTOS = 2; // Reducir reintentos para ganar velocidad
-    private static final int TIMEOUT_SEGUNDOS = 20; // Reducir timeout
+    private static final int MAX_REINTENTOS = 1; // ULTRA-AGRESIVO: Solo 1 reintento
+    private static final int TIMEOUT_SEGUNDOS = 15; // Timeout más corto
     
     private final ConfiguracionServidor config;
     private IContadorRemoto servicio;
     private Registry registry;
+    private static final int COMPRESSION_THRESHOLD = 50000; // Comprimir si >50KB
 
     public ClienteRMIOptimizado(ConfiguracionServidor config) throws Exception {
         this.config = config;
@@ -18,7 +21,6 @@ public class ClienteRMIOptimizado {
     }
 
     private void conectar() throws Exception {
-        // OPTIMIZACIÓN: Cachear el registry
         if (registry == null) {
             registry = LocateRegistry.getRegistry(config.getHost(), config.getPuerto());
         }
@@ -29,53 +31,73 @@ public class ClienteRMIOptimizado {
         return CompletableFuture.supplyAsync(() -> {
             for (int intento = 1; intento <= MAX_REINTENTOS; intento++) {
                 try {
-                    long inicio = System.nanoTime(); // Usar nanoTime para mayor precisión
+                    long inicio = System.nanoTime();
                     int resultado = servicio.contarPalabras(lineas);
-                    long tiempo = (System.nanoTime() - inicio) / 1_000_000; // Convertir a ms
+                    long tiempo = (System.nanoTime() - inicio) / 1_000_000;
                     return new ResultadoProcesamiento(config.getNombre(), resultado, tiempo);
                 } catch (Exception e) {
                     if (intento == MAX_REINTENTOS) {
                         return new ResultadoProcesamiento(config.getNombre(), 
-                            "Error después de " + MAX_REINTENTOS + " intentos: " + e.getMessage());
+                            "Error: " + e.getMessage());
                     }
                     try {
-                        Thread.sleep(500 * intento); // Menos espera entre reintentos
+                        Thread.sleep(200);
                         conectar();
                     } catch (Exception ex) {
-                        // Continuar con siguiente intento
+                        // Continuar
                     }
                 }
             }
             return new ResultadoProcesamiento(config.getNombre(), "Error desconocido");
         }).orTimeout(TIMEOUT_SEGUNDOS, TimeUnit.SECONDS)
           .exceptionally(ex -> new ResultadoProcesamiento(config.getNombre(), 
-              "Timeout o error: " + ex.getMessage()));
+              "Timeout: " + ex.getMessage()));
     }
     
     public CompletableFuture<ResultadoProcesamiento> contarRemotoAsyncTexto(String texto) {
         return CompletableFuture.supplyAsync(() -> {
             for (int intento = 1; intento <= MAX_REINTENTOS; intento++) {
                 try {
-                    long inicio = System.nanoTime(); // Usar nanoTime para mayor precisión
-                    int resultado = servicio.contarPalabrasTexto(texto);
-                    long tiempo = (System.nanoTime() - inicio) / 1_000_000; // Convertir a ms
+                    long inicio = System.nanoTime();
+                    int resultado;
+                    
+                    // OPTIMIZACIÓN: Comprimir si el texto es grande
+                    if (texto.length() > COMPRESSION_THRESHOLD) {
+                        byte[] comprimido = comprimirTexto(texto);
+                        resultado = servicio.contarPalabrasComprimido(comprimido);
+                        System.out.println("🔥 Compresión: " + texto.length() + " → " + 
+                            comprimido.length + " bytes (" + 
+                            String.format("%.1f%%", 100.0 * comprimido.length / texto.length()) + ")");
+                    } else {
+                        resultado = servicio.contarPalabrasTexto(texto);
+                    }
+                    
+                    long tiempo = (System.nanoTime() - inicio) / 1_000_000;
                     return new ResultadoProcesamiento(config.getNombre(), resultado, tiempo);
                 } catch (Exception e) {
                     if (intento == MAX_REINTENTOS) {
                         return new ResultadoProcesamiento(config.getNombre(), 
-                            "Error después de " + MAX_REINTENTOS + " intentos: " + e.getMessage());
+                            "Error: " + e.getMessage());
                     }
                     try {
-                        Thread.sleep(500 * intento); // Menos espera entre reintentos
+                        Thread.sleep(200);
                         conectar();
                     } catch (Exception ex) {
-                        // Continuar con siguiente intento
+                        // Continuar
                     }
                 }
             }
             return new ResultadoProcesamiento(config.getNombre(), "Error desconocido");
         }).orTimeout(TIMEOUT_SEGUNDOS, TimeUnit.SECONDS)
           .exceptionally(ex -> new ResultadoProcesamiento(config.getNombre(), 
-              "Timeout o error: " + ex.getMessage()));
+              "Timeout: " + ex.getMessage()));
+    }
+    
+    private byte[] comprimirTexto(String texto) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        GZIPOutputStream gzos = new GZIPOutputStream(baos);
+        gzos.write(texto.getBytes());
+        gzos.close();
+        return baos.toByteArray();
     }
 }

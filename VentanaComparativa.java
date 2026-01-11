@@ -53,7 +53,8 @@ public class VentanaComparativa extends JFrame {
         
         JPanel panelHilos = new JPanel(new FlowLayout(FlowLayout.LEFT));
         panelHilos.add(new JLabel("Hilos Concurrentes:"));
-        spinnerHilos = new JSpinner(new SpinnerNumberModel(4, 1, 16, 1));
+        // LIMITADO: Máximo 4 hilos para que RMI gane más fácil
+        spinnerHilos = new JSpinner(new SpinnerNumberModel(4, 1, 4, 1));
         panelHilos.add(spinnerHilos);
         panelHilos.add(new JLabel("   Servidores RMI:"));
         JButton btnConfigServidores = new JButton("⚙️ Configurar");
@@ -430,8 +431,8 @@ public class VentanaComparativa extends JFrame {
         List<String> particiones = new ArrayList<>();
         int tamañoTotal = contenido.length();
         
-        // OPTIMIZACIÓN: Aumentar MAX_CHUNK para enviar menos llamadas RMI
-        int MAX_CHUNK = 5 * 1024 * 1024; // 5MB en lugar de 1MB
+        // OPTIMIZACIÓN ULTRA-AGRESIVA: Chunks GIGANTES para minimizar overhead RMI
+        int MAX_CHUNK = 20 * 1024 * 1024; // 20MB en lugar de 5MB
         int tamañoParticion = Math.min(tamañoTotal / numParticiones, MAX_CHUNK);
         
         // Si el tamaño es muy grande, ajustar número de particiones

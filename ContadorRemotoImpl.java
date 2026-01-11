@@ -3,6 +3,10 @@ import java.rmi.RemoteException;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 public class ContadorRemotoImpl extends UnicastRemoteObject implements IContadorRemoto {
 
@@ -12,10 +16,10 @@ public class ContadorRemotoImpl extends UnicastRemoteObject implements IContador
 
     public ContadorRemotoImpl() throws RemoteException {
         super();
-        // Usar todos los cores disponibles en el servidor
-        this.numHilos = Runtime.getRuntime().availableProcessors();
+        // OPTIMIZACIÓN AGRESIVA: Usar 2x cores para saturar CPU
+        this.numHilos = Runtime.getRuntime().availableProcessors() * 2;
         this.executor = Executors.newFixedThreadPool(numHilos);
-        System.out.println("🚀 Servidor optimizado con " + numHilos + " hilos paralelos");
+        System.out.println("🚀 Servidor ULTRA-optimizado con " + numHilos + " hilos paralelos");
     }
 
     @Override
@@ -33,34 +37,50 @@ public class ContadorRemotoImpl extends UnicastRemoteObject implements IContador
     
     @Override
     public int contarPalabrasTexto(String texto) throws RemoteException {
-        int total = contarPalabrasParalelo(texto);
-        System.out.println("⚡ Procesados " + texto.length() + " bytes → " + total + " palabras (paralelo)");
+        int total = contarPalabrasParaleloAgresivo(texto);
+        System.out.println("⚡ Procesados " + texto.length() + " bytes → " + total + " palabras (ultra-paralelo)");
         return total;
     }
     
-    // OPTIMIZACIÓN: Procesamiento paralelo en el servidor
-    private int contarPalabrasParalelo(String texto) {
+    @Override
+    public int contarPalabrasComprimido(byte[] textoComprimido) throws RemoteException {
+        try {
+            // Descomprimir
+            ByteArrayInputStream bis = new ByteArrayInputStream(textoComprimido);
+            GZIPInputStream gis = new GZIPInputStream(bis);
+            String texto = new String(gis.readAllBytes());
+            gis.close();
+            
+            int total = contarPalabrasParaleloAgresivo(texto);
+            System.out.println("🔥 Descomprimido " + textoComprimido.length + " → " + texto.length() + " bytes, " + total + " palabras");
+            return total;
+        } catch (Exception e) {
+            throw new RemoteException("Error al descomprimir", e);
+        }
+    }
+    
+    // OPTIMIZACIÓN AGRESIVA: Procesamiento ultra-paralelo sin límites
+    private int contarPalabrasParaleloAgresivo(String texto) {
         if (texto == null || texto.isEmpty()) return 0;
         
-        // Si el texto es pequeño, procesarlo secuencialmente
-        if (texto.length() < 10000) {
-            return contarPalabras(texto);
-        }
-        
-        // Dividir en chunks para procesamiento paralelo
-        int tamañoChunk = texto.length() / numHilos;
+        // SIEMPRE procesar en paralelo, sin límite mínimo
+        int tamañoChunk = Math.max(1000, texto.length() / numHilos);
         AtomicInteger totalPalabras = new AtomicInteger(0);
         CountDownLatch latch = new CountDownLatch(numHilos);
         
         for (int i = 0; i < numHilos; i++) {
             int inicio = i * tamañoChunk;
-            int fin = (i == numHilos - 1) ? texto.length() : (inicio + tamañoChunk);
+            if (inicio >= texto.length()) {
+                latch.countDown();
+                continue;
+            }
+            int fin = Math.min(inicio + tamañoChunk, texto.length());
             
             final String chunk = texto.substring(inicio, fin);
             
             executor.submit(() -> {
                 try {
-                    int palabras = contarPalabras(chunk);
+                    int palabras = contarPalabrasRapido(chunk);
                     totalPalabras.addAndGet(palabras);
                 } finally {
                     latch.countDown();
@@ -69,7 +89,7 @@ public class ContadorRemotoImpl extends UnicastRemoteObject implements IContador
         }
         
         try {
-            latch.await(10, TimeUnit.SECONDS);
+            latch.await(5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -77,16 +97,20 @@ public class ContadorRemotoImpl extends UnicastRemoteObject implements IContador
         return totalPalabras.get();
     }
     
-    private int contarPalabras(String texto) {
+    // OPTIMIZACIÓN: Algoritmo más rápido sin split()
+    private int contarPalabrasRapido(String texto) {
         if (texto == null || texto.isEmpty()) return 0;
         
         int contador = 0;
         boolean enPalabra = false;
+        int length = texto.length();
         
-        // Optimización: proceso más eficiente
-        for (int i = 0; i < texto.length(); i++) {
+        for (int i = 0; i < length; i++) {
             char c = texto.charAt(i);
-            if (Character.isWhitespace(c)) {
+            // Optimización: comparación directa en lugar de Character.isWhitespace
+            boolean esEspacio = (c == ' ' || c == '\t' || c == '\n' || c == '\r');
+            
+            if (esEspacio) {
                 enPalabra = false;
             } else {
                 if (!enPalabra) {

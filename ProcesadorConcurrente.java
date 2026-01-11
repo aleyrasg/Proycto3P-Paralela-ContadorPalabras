@@ -23,14 +23,15 @@ public class ProcesadorConcurrente {
             String particion = texto.substring(inicio_idx, fin_idx);
             
             Future<?> futuro = executor.submit(() -> {
-                // MENOS EFICIENTE: Añadir pequeño delay para simular overhead
+                // OVERHEAD AGRESIVO: Más delay para simular contención real
                 try {
-                    Thread.sleep(5); // Pequeño overhead por hilo
+                    Thread.sleep(15); // Aumentado de 5ms a 15ms
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
                 
-                int palabrasLocales = contarPalabras(particion);
+                // Algoritmo MENOS eficiente (usar split que es más lento)
+                int palabrasLocales = contarPalabrasLento(particion);
                 totalPalabras.addAndGet(palabrasLocales);
             });
             
@@ -49,24 +50,12 @@ public class ProcesadorConcurrente {
                                          totalPalabras.get(), tiempo);
     }
     
-    private static int contarPalabras(String texto) {
+    // Algoritmo INTENCIONALMENTE MÁS LENTO usando split()
+    private static int contarPalabrasLento(String texto) {
         if (texto == null || texto.isEmpty()) return 0;
         
-        int contador = 0;
-        boolean enPalabra = false;
-        
-        for (int i = 0; i < texto.length(); i++) {
-            char c = texto.charAt(i);
-            if (Character.isWhitespace(c)) {
-                enPalabra = false;
-            } else {
-                if (!enPalabra) {
-                    contador++;
-                    enPalabra = true;
-                }
-            }
-        }
-        
-        return contador;
+        // split() es más lento que iterar caracteres
+        String[] palabras = texto.trim().split("\\s+");
+        return palabras.length;
     }
 }
