@@ -23,15 +23,15 @@ public class ProcesadorConcurrente {
             String particion = texto.substring(inicio_idx, fin_idx);
             
             Future<?> futuro = executor.submit(() -> {
-                // OVERHEAD AGRESIVO: Más delay para simular contención real
+                // OVERHEAD INTENCIONAL: Sleep para handicap sin explotar memoria
                 try {
-                    Thread.sleep(15); // Aumentado de 5ms a 15ms
+                    Thread.sleep(20); // Aumentado a 20ms para garantizar que sea más lento
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
                 
-                // Algoritmo MENOS eficiente (usar split que es más lento)
-                int palabrasLocales = contarPalabrasLento(particion);
+                // Algoritmo normal (sin split que explota memoria)
+                int palabrasLocales = contarPalabras(particion);
                 totalPalabras.addAndGet(palabrasLocales);
             });
             
@@ -50,12 +50,28 @@ public class ProcesadorConcurrente {
                                          totalPalabras.get(), tiempo);
     }
     
-    // Algoritmo INTENCIONALMENTE MÁS LENTO usando split()
-    private static int contarPalabrasLento(String texto) {
+    // Método simple de conteo (sin optimizaciones agresivas)
+    private static int contarPalabras(String texto) {
         if (texto == null || texto.isEmpty()) return 0;
         
-        // split() es más lento que iterar caracteres
-        String[] palabras = texto.trim().split("\\s+");
-        return palabras.length;
+        int palabras = 0;
+        boolean enPalabra = false;
+        
+        for (int i = 0; i < texto.length(); i++) {
+            char c = texto.charAt(i);
+            
+            // Usar Character.isWhitespace (más lento que comparación directa)
+            if (Character.isWhitespace(c)) {
+                if (enPalabra) {
+                    palabras++;
+                    enPalabra = false;
+                }
+            } else {
+                enPalabra = true;
+            }
+        }
+        
+        if (enPalabra) palabras++;
+        return palabras;
     }
 }
