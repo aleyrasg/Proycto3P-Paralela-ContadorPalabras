@@ -375,18 +375,22 @@ public class VentanaComparativa extends JFrame {
     private ResultadoProcesamiento ejecutarParalelo(String contenido) throws Exception {
         long inicio = System.nanoTime(); // Usar nanoTime para mejor precisión
         
-        // OPTIMIZACIÓN: Usar menos particiones para reducir overhead de comunicación
-        // Enviar chunks más grandes a cada servidor
-        int numServidores = servidores.size();
-        List<String> particiones = dividirTrabajoPorBytes(contenido, numServidores);
+        // OPTIMIZACIÓN: Crear chunks grandes y distribuirlos a TODOS los servidores
+        int MAX_CHUNK = 20 * 1024 * 1024; // 20MB por chunk
+        int numChunks = (int) Math.ceil((double) contenido.length() / MAX_CHUNK);
+        List<String> particiones = dividirTrabajoPorBytes(contenido, numChunks);
         List<CompletableFuture<ResultadoProcesamiento>> tareas = new ArrayList<>();
         
-        // OPTIMIZACIÓN: Distribuir una partición grande por servidor (en lugar de múltiples pequeñas)
-        for (int i = 0; i < numServidores && i < particiones.size(); i++) {
-            ConfiguracionServidor servidor = servidores.get(i);
+        log("📦 Distribuyendo " + numChunks + " chunks entre " + servidores.size() + " servidores");
+        
+        // DISTRIBUIR TODOS los chunks entre TODOS los servidores (round-robin)
+        for (int i = 0; i < particiones.size(); i++) {
+            ConfiguracionServidor servidor = servidores.get(i % servidores.size()); // Round-robin
             String particion = particiones.get(i);
+            final int chunkNum = i + 1; // Para logging
+            final String nombreTarea = servidor.getNombre() + "-Chunk" + chunkNum;
             
-            actualizarTablaHilos("Paralelo-RMI", servidor.getNombre(), "🔄 Conectando", 
+            actualizarTablaHilos("Paralelo-RMI", nombreTarea, "🔄 Conectando", 
                 String.format("%,d bytes", particion.length()), "0%");
             
             try {
@@ -395,22 +399,22 @@ public class VentanaComparativa extends JFrame {
                 
                 tarea.thenAccept(resultado -> {
                     if (resultado.isExitoso()) {
-                        actualizarTablaHilos("Paralelo-RMI", servidor.getNombre(), "✅ Completado", 
+                        actualizarTablaHilos("Paralelo-RMI", nombreTarea, "✅ Completado", 
                             String.format("%,d bytes", particion.length()), "100%");
-                        log("   ✅ " + servidor.getNombre() + ": " + resultado.getPalabras() + 
+                        log("   ✅ " + nombreTarea + ": " + resultado.getPalabras() + 
                             " palabras en " + resultado.getTiempoMs() + " ms");
                     } else {
-                        actualizarTablaHilos("Paralelo-RMI", servidor.getNombre(), "❌ Error", 
+                        actualizarTablaHilos("Paralelo-RMI", nombreTarea, "❌ Error", 
                             String.format("%,d bytes", particion.length()), "0%");
-                        log("   ❌ " + servidor.getNombre() + ": " + resultado.getError());
+                        log("   ❌ " + nombreTarea + ": " + resultado.getError());
                     }
                 });
                 
                 tareas.add(tarea);
             } catch (Exception e) {
-                actualizarTablaHilos("Paralelo-RMI", servidor.getNombre(), "❌ Error Conexión", 
+                actualizarTablaHilos("Paralelo-RMI", nombreTarea, "❌ Error Conexión", 
                     String.format("%,d bytes", particion.length()), "0%");
-                log("   ❌ " + servidor.getNombre() + ": No se pudo conectar");
+                log("   ❌ " + nombreTarea + ": No se pudo conectar");
             }
         }
         
