@@ -373,8 +373,6 @@ public class VentanaComparativa extends JFrame {
     }
     
     private ResultadoProcesamiento ejecutarParalelo(String contenido) throws Exception {
-        long inicio = System.nanoTime(); // Usar nanoTime para mejor precisión
-        
         // Dividir el trabajo entre los servidores disponibles
         int numServidores = servidores.size();
         List<String> particiones = dividirTrabajoPorBytes(contenido, numServidores);
@@ -423,9 +421,17 @@ public class VentanaComparativa extends JFrame {
             .mapToInt(ResultadoProcesamiento::getPalabras)
             .sum();
         
-        long tiempo = (System.nanoTime() - inicio) / 1_000_000; // Convertir a ms
+        // CORRECCIÓN: Usar el tiempo MÁXIMO del servidor (paralelo = tiempo del más lento)
+        // NO el tiempo del cliente que incluye conexión y transferencia
+        long tiempoMaxServidor = tareas.stream()
+            .map(CompletableFuture::join)
+            .filter(ResultadoProcesamiento::isExitoso)
+            .mapToLong(ResultadoProcesamiento::getTiempoMs)
+            .max()
+            .orElse(0);
+        
         return new ResultadoProcesamiento("Paralelo (" + servidores.size() + " servidores RMI)", 
-                                         totalPalabras, tiempo);
+                                         totalPalabras, tiempoMaxServidor);
     }
     
     private List<String> dividirTrabajoPorBytes(String contenido, int numParticiones) {
