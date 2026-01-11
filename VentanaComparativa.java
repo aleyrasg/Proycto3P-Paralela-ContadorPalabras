@@ -375,22 +375,19 @@ public class VentanaComparativa extends JFrame {
     private ResultadoProcesamiento ejecutarParalelo(String contenido) throws Exception {
         long inicio = System.nanoTime(); // Usar nanoTime para mejor precisión
         
-        // OPTIMIZACIÓN: Crear chunks grandes y distribuirlos a TODOS los servidores
-        int MAX_CHUNK = 20 * 1024 * 1024; // 20MB por chunk
-        int numChunks = (int) Math.ceil((double) contenido.length() / MAX_CHUNK);
-        List<String> particiones = dividirTrabajoPorBytes(contenido, numChunks);
+        // Dividir el trabajo entre los servidores disponibles
+        int numServidores = servidores.size();
+        List<String> particiones = dividirTrabajoPorBytes(contenido, numServidores);
         List<CompletableFuture<ResultadoProcesamiento>> tareas = new ArrayList<>();
         
-        log("📦 Distribuyendo " + numChunks + " chunks entre " + servidores.size() + " servidores");
+        log("📦 Distribuyendo entre " + numServidores + " servidores");
         
-        // DISTRIBUIR TODOS los chunks entre TODOS los servidores (round-robin)
-        for (int i = 0; i < particiones.size(); i++) {
-            ConfiguracionServidor servidor = servidores.get(i % servidores.size()); // Round-robin
+        // Asignar una partición a cada servidor
+        for (int i = 0; i < numServidores && i < particiones.size(); i++) {
+            ConfiguracionServidor servidor = servidores.get(i);
             String particion = particiones.get(i);
-            final int chunkNum = i + 1; // Para logging
-            final String nombreTarea = servidor.getNombre() + "-Chunk" + chunkNum;
             
-            actualizarTablaHilos("Paralelo-RMI", nombreTarea, "🔄 Conectando", 
+            actualizarTablaHilos("Paralelo-RMI", servidor.getNombre(), "🔄 Conectando", 
                 String.format("%,d bytes", particion.length()), "0%");
             
             try {
@@ -399,22 +396,22 @@ public class VentanaComparativa extends JFrame {
                 
                 tarea.thenAccept(resultado -> {
                     if (resultado.isExitoso()) {
-                        actualizarTablaHilos("Paralelo-RMI", nombreTarea, "✅ Completado", 
+                        actualizarTablaHilos("Paralelo-RMI", servidor.getNombre(), "✅ Completado", 
                             String.format("%,d bytes", particion.length()), "100%");
-                        log("   ✅ " + nombreTarea + ": " + resultado.getPalabras() + 
+                        log("   ✅ " + servidor.getNombre() + ": " + resultado.getPalabras() + 
                             " palabras en " + resultado.getTiempoMs() + " ms");
                     } else {
-                        actualizarTablaHilos("Paralelo-RMI", nombreTarea, "❌ Error", 
+                        actualizarTablaHilos("Paralelo-RMI", servidor.getNombre(), "❌ Error", 
                             String.format("%,d bytes", particion.length()), "0%");
-                        log("   ❌ " + nombreTarea + ": " + resultado.getError());
+                        log("   ❌ " + servidor.getNombre() + ": " + resultado.getError());
                     }
                 });
                 
                 tareas.add(tarea);
             } catch (Exception e) {
-                actualizarTablaHilos("Paralelo-RMI", nombreTarea, "❌ Error Conexión", 
+                actualizarTablaHilos("Paralelo-RMI", servidor.getNombre(), "❌ Error Conexión", 
                     String.format("%,d bytes", particion.length()), "0%");
-                log("   ❌ " + nombreTarea + ": No se pudo conectar");
+                log("   ❌ " + servidor.getNombre() + ": No se pudo conectar");
             }
         }
         
@@ -435,16 +432,11 @@ public class VentanaComparativa extends JFrame {
         List<String> particiones = new ArrayList<>();
         int tamañoTotal = contenido.length();
         
-        // OPTIMIZACIÓN ULTRA-AGRESIVA: Chunks GIGANTES para minimizar overhead RMI
-        int MAX_CHUNK = 20 * 1024 * 1024; // 20MB en lugar de 5MB
-        int tamañoParticion = Math.min(tamañoTotal / numParticiones, MAX_CHUNK);
+        // Calcular tamaño de cada partición (dividir equitativamente)
+        int tamañoParticion = tamañoTotal / numParticiones;
         
-        // Si el tamaño es muy grande, ajustar número de particiones
-        if (tamañoTotal / numParticiones > MAX_CHUNK) {
-            numParticiones = (int) Math.ceil((double) tamañoTotal / MAX_CHUNK);
-            tamañoParticion = tamañoTotal / numParticiones;
-            log("⚠️ Archivo muy grande, ajustando a " + numParticiones + " particiones");
-        }
+        log("   Dividiendo " + String.format("%,d", tamañoTotal) + " bytes en " + 
+            numParticiones + " particiones de ~" + String.format("%,d", tamañoParticion) + " bytes");
         
         for (int i = 0; i < numParticiones; i++) {
             int inicio = i * tamañoParticion;

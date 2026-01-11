@@ -39,32 +39,48 @@ public class ServidorRMI {
     
     private static String obtenerIPLocal() {
         try {
-            // Método 1: Obtener IP local
-            String ip = InetAddress.getLocalHost().getHostAddress();
+            // Buscar la mejor IP disponible (priorizar redes 192.168.x.x)
+            java.util.Enumeration<java.net.NetworkInterface> interfaces = 
+                java.net.NetworkInterface.getNetworkInterfaces();
             
-            // Si es localhost, intentar obtener la IP real
-            if (ip.equals("127.0.0.1") || ip.startsWith("127.")) {
-                // Método 2: Buscar interfaces de red
-                java.util.Enumeration<java.net.NetworkInterface> interfaces = 
-                    java.net.NetworkInterface.getNetworkInterfaces();
+            String fallbackIP = null;
+            
+            while (interfaces.hasMoreElements()) {
+                java.net.NetworkInterface iface = interfaces.nextElement();
                 
-                while (interfaces.hasMoreElements()) {
-                    java.net.NetworkInterface iface = interfaces.nextElement();
-                    if (iface.isLoopback() || !iface.isUp()) continue;
+                // Ignorar interfaces inactivas o loopback
+                if (iface.isLoopback() || !iface.isUp()) continue;
+                
+                java.util.Enumeration<java.net.InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    java.net.InetAddress addr = addresses.nextElement();
                     
-                    java.util.Enumeration<java.net.InetAddress> addresses = iface.getInetAddresses();
-                    while (addresses.hasMoreElements()) {
-                        java.net.InetAddress addr = addresses.nextElement();
-                        // Buscar IPv4 que no sea localhost
-                        if (addr instanceof java.net.Inet4Address && 
-                            !addr.isLoopbackAddress()) {
-                            return addr.getHostAddress();
+                    // Solo IPv4 y no loopback
+                    if (addr instanceof java.net.Inet4Address && !addr.isLoopbackAddress()) {
+                        String ip = addr.getHostAddress();
+                        
+                        // PRIORIDAD 1: Redes locales comunes (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+                        if (ip.startsWith("192.168.") || ip.startsWith("10.")) {
+                            return ip;
+                        }
+                        if (ip.startsWith("172.")) {
+                            int second = Integer.parseInt(ip.split("\\.")[1]);
+                            if (second >= 16 && second <= 31) {
+                                return ip;
+                            }
+                        }
+                        
+                        // Guardar como fallback cualquier IP no-loopback
+                        if (fallbackIP == null) {
+                            fallbackIP = ip;
                         }
                     }
                 }
             }
             
-            return ip;
+            // Si no encontramos IP prioritaria, usar fallback o localhost
+            return fallbackIP != null ? fallbackIP : InetAddress.getLocalHost().getHostAddress();
+            
         } catch (Exception e) {
             System.err.println("⚠️ No se pudo obtener IP, usando localhost");
             return "localhost";
