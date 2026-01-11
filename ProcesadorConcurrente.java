@@ -23,14 +23,7 @@ public class ProcesadorConcurrente {
             String particion = texto.substring(inicio_idx, fin_idx);
             
             Future<?> futuro = executor.submit(() -> {
-                // OVERHEAD INTENCIONAL: Sleep para handicap sin explotar memoria
-                try {
-                    Thread.sleep(20); // Aumentado a 20ms para garantizar que sea más lento
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                
-                // Algoritmo normal (sin split que explota memoria)
+                // Procesar la partición sin overhead artificial
                 int palabrasLocales = contarPalabras(particion);
                 totalPalabras.addAndGet(palabrasLocales);
             });

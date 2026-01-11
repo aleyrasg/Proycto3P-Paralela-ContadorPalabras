@@ -58,22 +58,23 @@ public class ClienteRMIOptimizado {
         return CompletableFuture.supplyAsync(() -> {
             for (int intento = 1; intento <= MAX_REINTENTOS; intento++) {
                 try {
-                    long inicio = System.nanoTime();
-                    int resultado;
+                    long[] resultado; // [palabras, tiempoMs] - tiempo medido en el SERVIDOR
                     
                     // OPTIMIZACIÓN: Comprimir si el texto es grande
                     if (texto.length() > COMPRESSION_THRESHOLD) {
                         byte[] comprimido = comprimirTexto(texto);
-                        resultado = servicio.contarPalabrasComprimido(comprimido);
+                        // Usar método que devuelve tiempo del SERVIDOR (no incluye conexión)
+                        resultado = servicio.contarPalabrasComprimidoConTiempo(comprimido);
                         System.out.println("🔥 Compresión: " + texto.length() + " → " + 
                             comprimido.length + " bytes (" + 
                             String.format("%.1f%%", 100.0 * comprimido.length / texto.length()) + ")");
                     } else {
-                        resultado = servicio.contarPalabrasTexto(texto);
+                        // Usar método que devuelve tiempo del SERVIDOR (no incluye conexión)
+                        resultado = servicio.contarPalabrasConTiempo(texto);
                     }
                     
-                    long tiempo = (System.nanoTime() - inicio) / 1_000_000;
-                    return new ResultadoProcesamiento(config.getNombre(), resultado, tiempo);
+                    // resultado[0] = palabras, resultado[1] = tiempo de PROCESAMIENTO (ms)
+                    return new ResultadoProcesamiento(config.getNombre(), (int)resultado[0], resultado[1]);
                 } catch (Exception e) {
                     if (intento == MAX_REINTENTOS) {
                         return new ResultadoProcesamiento(config.getNombre(), 

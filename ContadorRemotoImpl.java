@@ -122,4 +122,36 @@ public class ContadorRemotoImpl extends UnicastRemoteObject implements IContador
         
         return contador;
     }
+    
+    // NUEVO: Devuelve [palabras, tiempoMs] - SOLO mide tiempo de procesamiento
+    @Override
+    public long[] contarPalabrasConTiempo(String texto) throws RemoteException {
+        long inicio = System.currentTimeMillis();
+        int palabras = contarPalabrasParaleloAgresivo(texto);
+        long tiempo = System.currentTimeMillis() - inicio;
+        System.out.println("⏱️ Procesamiento: " + texto.length() + " bytes → " + palabras + " palabras en " + tiempo + " ms");
+        return new long[]{palabras, tiempo};
+    }
+    
+    @Override
+    public long[] contarPalabrasComprimidoConTiempo(byte[] textoComprimido) throws RemoteException {
+        try {
+            // Descomprimir (esto SÍ se cuenta en el tiempo del servidor)
+            long inicio = System.currentTimeMillis();
+            
+            ByteArrayInputStream bis = new ByteArrayInputStream(textoComprimido);
+            GZIPInputStream gis = new GZIPInputStream(bis);
+            String texto = new String(gis.readAllBytes());
+            gis.close();
+            
+            int palabras = contarPalabrasParaleloAgresivo(texto);
+            long tiempo = System.currentTimeMillis() - inicio;
+            
+            System.out.println("🔥⏱️ Descomprimido + Procesado: " + textoComprimido.length + " → " + 
+                texto.length() + " bytes, " + palabras + " palabras en " + tiempo + " ms");
+            return new long[]{palabras, tiempo};
+        } catch (Exception e) {
+            throw new RemoteException("Error al descomprimir", e);
+        }
+    }
 }
