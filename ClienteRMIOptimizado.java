@@ -7,8 +7,8 @@ import java.io.ByteArrayOutputStream;
 import java.util.zip.GZIPOutputStream;
 
 public class ClienteRMIOptimizado {
-    private static final int MAX_REINTENTOS = 1; // ULTRA-AGRESIVO: Solo 1 reintento
-    private static final int TIMEOUT_SEGUNDOS = 15; // Timeout más corto
+    private static final int MAX_REINTENTOS = 1; // Solo 1 reintento
+    private static final int TIMEOUT_SEGUNDOS = 120; // 2 minutos para archivos grandes
     
     private final ConfiguracionServidor config;
     private IContadorRemoto servicio;
