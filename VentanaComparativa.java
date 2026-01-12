@@ -112,6 +112,8 @@ public class VentanaComparativa extends JFrame {
         servidores = new ArrayList<>();
         servidores.add(new ConfiguracionServidor("localhost", 1099, "Servidor-1"));
         servidores.add(new ConfiguracionServidor("localhost", 1100, "Servidor-2"));
+        servidores.add(new ConfiguracionServidor("localhost", 1101, "Servidor-3"));
+        servidores.add(new ConfiguracionServidor("localhost", 1102, "Servidor-4"));
     }
     
     /**
