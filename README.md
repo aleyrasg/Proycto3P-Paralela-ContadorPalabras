@@ -1,194 +1,167 @@
-# 🚀 Sistema de Procesamiento Paralelo Distribuido con RMI
+# 🚀 Comparativa de Procesamiento: Secuencial vs Concurrente vs Paralelo (RMI)
 
-Sistema optimizado de procesamiento paralelo que distribuye el conteo de palabras en archivos de texto entre múltiples servidores RMI.
+Sistema de comparación de rendimiento para el conteo de palabras en archivos de texto grandes, utilizando tres modos de procesamiento: Secuencial, Concurrente (multi-hilo local) y Paralelo (RMI distribuido).
 
-## ✨ Características Principales
+## 📋 Descripción del Proyecto
 
-### 🎯 Versión Optimizada (VentanaParalelaOptimizada)
+Este proyecto demuestra las diferencias de rendimiento entre:
 
-- ✅ **Escalabilidad Dinámica**: Soporta N servidores configurables
-- ✅ **Interfaz Avanzada**: Dashboard con métricas en tiempo real
-- ✅ **Manejo Robusto de Errores**: Reintentos automáticos y failover
-- ✅ **CompletableFuture**: Procesamiento asíncrono moderno
-- ✅ **Monitoreo en Tiempo Real**: Progreso, estadísticas y velocidad
-- ✅ **Configuración Dinámica**: Agregar/eliminar servidores desde GUI
-- ✅ **Timeout Inteligente**: 30 segundos por servidor
-- ✅ **Logs Detallados**: Timestamps y eventos completos
+1. **Secuencial**: Un solo hilo procesando todo el archivo
+2. **Concurrente**: Múltiples hilos locales (ExecutorService)
+3. **Paralelo (RMI)**: Procesamiento distribuido en múltiples servidores remotos
 
-### 📊 Interfaz Mejorada
+## 🏗️ Arquitectura
 
-- **Barra de Progreso**: Visualización en tiempo real
-- **Tabla de Servidores**: Estado, palabras procesadas, tiempo, velocidad
-- **Panel de Configuración**: Gestión dinámica de servidores
-- **Estadísticas**: Total de palabras, tiempo, velocidad promedio
-- **Log con Timestamps**: Seguimiento detallado de eventos
+```
+┌─────────────────────────────────────────────────────────────┐
+│  TU COMPUTADORA (Cliente)                                   │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  VentanaComparativa (GUI)                              │ │
+│  │  - Ejecuta Secuencial (1 hilo)                         │ │
+│  │  - Ejecuta Concurrente (N hilos locales)               │ │
+│  │  - Ejecuta Paralelo (envía a servidores RMI)           │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                         ↕️ Red (RMI)
+┌─────────────────────────────────────────────────────────────┐
+│  COMPUTADORA REMOTA (Servidores RMI)                        │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌───────────┐ │
+│  │ Servidor 1 │ │ Servidor 2 │ │ Servidor 3 │ │ Servidor N│ │
+│  │ Puerto 1099│ │ Puerto 1100│ │ Puerto 1101│ │ Puerto N  │ │
+│  └────────────┘ └────────────┘ └────────────┘ └───────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 📦 Archivos del Proyecto
+
+| Archivo | Descripción |
+|---------|-------------|
+| `VentanaComparativa.java` | GUI principal con la comparativa |
+| `ProcesadorSecuencial.java` | Procesamiento en un solo hilo |
+| `ProcesadorConcurrente.java` | Procesamiento multi-hilo local |
+| `ClienteRMIOptimizado.java` | Cliente RMI con compresión y timeout |
+| `ServidorRMI.java` | Servidor RMI (ejecutar en máquina remota) |
+| `ContadorRemotoImpl.java` | Implementación del servicio RMI |
+| `IContadorRemoto.java` | Interfaz remota RMI |
+| `ConfiguracionServidor.java` | Configuración de servidores |
+| `ResultadoProcesamiento.java` | Encapsulación de resultados |
+| `run_gui.sh` | Script para ejecutar GUI (macOS/Linux) |
+| `run_gui.bat` | Script para ejecutar GUI (Windows) |
+| `start_servers.sh` | Script para iniciar servidores (macOS/Linux) |
+| `start_servers.bat` | Script para iniciar servidores (Windows) |
 
 ## 🚀 Ejecución Rápida
 
 ### 1. Compilar
 ```bash
-cd Proycto3P
 javac *.java
 ```
 
-### 2. Iniciar Servidores
-**Terminal 1:**
+### 2. Iniciar Servidores RMI (en otra computadora o terminales separadas)
 ```bash
+# Terminal 1
 java ServidorRMI 1099
-```
 
-**Terminal 2:**
-```bash
+# Terminal 2
 java ServidorRMI 1100
 ```
 
-### 3. Ejecutar Cliente Optimizado
+### 3. Ejecutar la GUI (⚠️ IMPORTANTE: Usar el script)
 ```bash
-java VentanaParalelaOptimizada
+# macOS/Linux
+./run_gui.sh
+
+# Windows
+run_gui.bat
 ```
 
-## 📖 Uso de la Interfaz
+> ⚠️ **NO** ejecutar `java VentanaComparativa` directamente. El archivo de texto es grande y necesita 8GB de memoria heap.
 
-1. **Seleccionar Archivo**: Click en "📁 Seleccionar Archivo"
-2. **Configurar Servidores** (opcional): Click en "⚙️ Configurar Servidores"
-   - Agregar nuevos servidores
-   - Eliminar servidores existentes
-3. **Procesar**: Click en "⚡ Procesar Paralelo"
-4. **Monitorear**: Ver progreso en tiempo real en tabla y log
+## 📊 Métricas de Rendimiento
 
-## 🔧 Configuración de Servidores
+### Speedup
+- **Speedup > 1**: El modo es más rápido que secuencial ✅
+- **Speedup = 1**: Igual que secuencial
+- **Speedup < 1**: Más lento que secuencial ❌
 
-### Agregar Servidor
-1. Click en "⚙️ Configurar Servidores"
-2. Click en "➕ Agregar"
-3. Ingresar:
-   - Host (ej: localhost, 192.168.1.10)
-   - Puerto (ej: 1099)
-   - Nombre (ej: Servidor-3)
+### Eficiencia
+- `Eficiencia = Speedup / Número de hilos (o servidores)`
+- **100%** = Escalabilidad perfecta (ideal)
+- **<100%** = Overhead por paralelización
 
-### Servidores por Defecto
-- Servidor-1: localhost:1099
-- Servidor-2: localhost:1100
+## 🔧 Configuración de Servidores RMI
 
-## 🏗️ Arquitectura
+### En la GUI:
+1. Click en **"⚙️ Configurar"**
+2. Agregar servidores con:
+   - **Host**: IP del servidor (ej: `192.168.1.100`)
+   - **Puerto**: Puerto RMI (ej: `1099`)
+   - **Nombre**: Identificador (ej: `Servidor-1`)
+3. Click **"💾 Guardar"**
 
-```
-┌─────────────────────────────────┐
-│  VentanaParalelaOptimizada      │
-│  (Cliente con GUI Avanzada)     │
-└────────────┬────────────────────┘
-             │
-    ┌────────┴────────┐
-    │                 │
-┌───▼────┐      ┌────▼────┐
-│Server 1│ ...  │Server N │
-│  RMI   │      │   RMI   │
-└────────┘      └─────────┘
-```
+### Configuración por defecto:
+- `localhost:1099` - Servidor-1
+- `localhost:1100` - Servidor-2
 
-## 📦 Componentes
+## 🌐 Configuración en Red
 
-### Clases Principales
-- **VentanaParalelaOptimizada**: Interfaz gráfica avanzada
-- **ClienteRMIOptimizado**: Cliente con reintentos y timeout
-- **ConfiguracionServidor**: Configuración de servidores
-- **ResultadoProcesamiento**: Encapsulación de resultados
-- **ServidorRMI**: Servidor RMI (puerto configurable)
-- **IContadorRemoto**: Interfaz remota
-- **ContadorRemotoImpl**: Implementación del servicio
+### Para ejecutar servidores en otra computadora:
 
-### Mejoras Implementadas
+1. **Copiar archivos necesarios**:
+   ```
+   ServidorRMI.class
+   ContadorRemotoImpl.class
+   IContadorRemoto.class
+   ResultadoProcesamiento.class
+   ```
 
-#### 1. Escalabilidad
-- Soporte para N servidores (no limitado a 2)
-- Balanceo automático de carga
-- Configuración dinámica sin reiniciar
+2. **Iniciar servidores** en la computadora remota:
+   ```bash
+   java ServidorRMI 1099
+   java ServidorRMI 1100
+   ```
 
-#### 2. Rendimiento
-- CompletableFuture para procesamiento asíncrono
-- Procesamiento paralelo real
-- División inteligente del trabajo
+3. **Verificar IP** mostrada por el servidor (debe ser `192.168.x.x`, NO `127.0.0.1`)
 
-#### 3. Confiabilidad
-- Reintentos automáticos (3 intentos)
-- Timeout de 30 segundos
-- Manejo robusto de errores
-- Logs detallados
+4. **Configurar firewall** para permitir puertos 1099-1102
 
-#### 4. Experiencia de Usuario
-- Interfaz moderna y profesional
-- Progreso en tiempo real
-- Estadísticas detalladas
-- Configuración visual
+5. **En la GUI**, configurar servidores con la IP de la computadora remota
 
-## 📊 Métricas Mostradas
+## 📈 Resultados Esperados
 
-- **Total de Palabras**: Suma de todas las particiones
-- **Tiempo Total**: Duración del procesamiento paralelo
-- **Servidores Exitosos**: Cantidad de servidores que completaron
-- **Velocidad Promedio**: Palabras procesadas por segundo
-- **Por Servidor**:
-  - Estado (Inactivo/Procesando/Completado/Error)
-  - Palabras procesadas
-  - Tiempo de procesamiento
-  - Velocidad individual
+Con un archivo de texto grande (~1GB):
 
-## 🔄 Comparación de Versiones
+| Modo | Descripción | Speedup Esperado |
+|------|-------------|------------------|
+| **Secuencial** | 1 hilo | 1x (baseline) |
+| **Concurrente (4 hilos)** | 4 hilos locales | ~2-4x |
+| **Paralelo (4 servidores RMI)** | 4 servidores remotos | ~2-4x |
 
-| Característica | Versión Original | Versión Optimizada |
-|----------------|------------------|-------------------|
-| Servidores | 2 fijos | N configurables |
-| Interfaz | Básica | Avanzada con métricas |
-| Progreso | No | Barra en tiempo real |
-| Reintentos | No | 3 intentos automáticos |
-| Timeout | No | 30 segundos |
-| Configuración | Hardcoded | Dinámica desde GUI |
-| Threads | Thread básico | CompletableFuture |
-| Estadísticas | Mínimas | Completas |
+> El speedup real depende del hardware, red, y tamaño del archivo.
 
-## 🎯 Casos de Uso
+## 🐛 Solución de Problemas
 
-1. **Procesamiento de Logs**: Analizar archivos de log grandes
-2. **Análisis de Texto**: Contar palabras en documentos extensos
-3. **Big Data**: Procesar datasets distribuidos
-4. **Benchmarking**: Comparar rendimiento de servidores
+### Error: `OutOfMemoryError: Java heap space`
+**Causa**: No hay suficiente memoria para procesar archivos grandes.
+**Solución**: Usar `./run_gui.sh` en lugar de `java VentanaComparativa`
 
-## 🛠️ Requisitos
+### Error: `Connection refused`
+**Causa**: El servidor RMI no está corriendo o firewall bloquea.
+**Solución**:
+1. Verificar que el servidor está corriendo
+2. Verificar la IP (no debe ser 127.0.0.1)
+3. Abrir puertos en firewall
 
-- Java 11 o superior
-- Múltiples terminales para servidores
-- Archivos de texto para procesar
-
-## 📝 Ejemplo de Salida
-
-```
-[10:30:45] 🚀 Iniciando procesamiento paralelo...
-[10:30:45] 📄 Archivo: text1.txt
-[10:30:45] 🖥️  Servidores activos: 2
-[10:30:45] 📊 Total de líneas: 1000
-[10:30:45] 📤 Enviando 500 líneas a Servidor-1
-[10:30:45] 📤 Enviando 500 líneas a Servidor-2
-[10:30:46] ✅ Servidor-1 completado: 2543 palabras en 1234 ms
-[10:30:46] ✅ Servidor-2 completado: 2487 palabras en 1198 ms
-[10:30:46] ==================================================
-[10:30:46] ✅ PROCESAMIENTO COMPLETADO
-[10:30:46] 📊 Total de palabras: 5030
-[10:30:46] ⏱️  Tiempo total: 1250 ms
-[10:30:46] 🖥️  Servidores exitosos: 2/2
-[10:30:46] ⚡ Velocidad promedio: 4024 palabras/seg
-[10:30:46] ==================================================
+### Servidor muestra IP incorrecta
+**Solución**: Forzar la IP correcta:
+```bash
+java -Djava.rmi.server.hostname=192.168.1.X ServidorRMI 1099
 ```
 
-## 🚀 Próximas Mejoras Posibles
+## 👥 Autores
 
-- [ ] Persistencia de configuración de servidores
-- [ ] Gráficas de rendimiento en tiempo real
-- [ ] Exportar resultados a CSV/JSON
-- [ ] Soporte para múltiples archivos simultáneos
-- [ ] Autenticación y seguridad RMI
-- [ ] Monitoreo de recursos del servidor
-- [ ] Balanceo de carga adaptativo
+Proyecto para la materia de Programación Paralela - 3er Parcial
 
 ## 📄 Licencia
 
-Proyecto educativo - Programación Paralela
+Proyecto académico - Universidad

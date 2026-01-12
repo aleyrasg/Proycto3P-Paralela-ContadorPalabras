@@ -8,20 +8,89 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * VentanaComparativa - Interfaz Gráfica Principal para Comparación de Rendimiento
+ * 
+ * Esta clase implementa la GUI principal del sistema de comparación de rendimiento
+ * entre procesamiento Secuencial, Concurrente (multi-hilo local) y Paralelo (RMI).
+ * 
+ * FUNCIONALIDAD:
+ * - Selección de archivo de texto para procesar
+ * - Configuración de número de hilos para modo Concurrente
+ * - Gestión de servidores RMI para modo Paralelo
+ * - Ejecución de los tres modos y comparación de resultados
+ * - Visualización de progreso, tiempos y métricas (speedup, eficiencia)
+ * 
+ * ARQUITECTURA DE LA INTERFAZ:
+ * - Panel superior: Configuración (archivo, hilos, servidores)
+ * - Panel central: Tabs con Resultados, Estado de Hilos, y Logs
+ * - Panel inferior: Botones de ejecución y limpieza
+ * 
+ * MÉTRICAS CALCULADAS:
+ * - Tiempo de procesamiento (ms)
+ * - Cantidad de palabras contadas
+ * - Velocidad (palabras/segundo)
+ * - Speedup: TiempoSecuencial / TiempoModo
+ * - Eficiencia: Speedup / NúmeroDeUnidades
+ * 
+ * USO:
+ *   Ejecutar con: ./run_gui.sh (requiere 8GB de RAM para archivos grandes)
+ *   
+ * IMPORTANTE:
+ * - El tiempo de modo Paralelo usa el MÁXIMO tiempo de los servidores
+ * - Esto es correcto porque en paralelo real, el más lento define el tiempo total
+ * - El tiempo medido es SOLO procesamiento del servidor (no incluye red)
+ * 
+ * @author Proyecto Paralela - 3er Parcial
+ * @version 2.0 - Con medición de tiempo del servidor y compresión GZIP
+ */
 public class VentanaComparativa extends JFrame {
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // COMPONENTES DE LA INTERFAZ
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    /** Campo de texto para mostrar el archivo seleccionado */
     private JTextField txtArchivo;
+    
+    /** Área de texto para logs detallados */
     private JTextArea txtLog;
+    
+    /** Tabla para mostrar resultados comparativos */
     private JTable tablaResultados;
+    
+    /** Modelo de datos para la tabla de resultados */
     private DefaultTableModel modeloTabla;
+    
+    /** Tabla para mostrar estado de hilos/conexiones */
     private JTable tablaHilos;
+    
+    /** Modelo de datos para la tabla de hilos */
     private DefaultTableModel modeloHilos;
+    
+    /** Label para mostrar descripción del problema */
     private JLabel lblProblema;
+    
+    /** Spinner para seleccionar número de hilos concurrentes */
     private JSpinner spinnerHilos;
+    
+    /** Archivo seleccionado para procesar */
     private File archivoSeleccionado;
+    
+    /** Lista de servidores RMI configurados */
     private List<ConfiguracionServidor> servidores;
+    
+    /** Barras de progreso para cada modo */
     private JProgressBar progressSecuencial, progressConcurrente, progressParalelo;
+    
+    /** Labels para mostrar speedup de cada modo */
     private JLabel lblSpeedupConcurrente, lblSpeedupParalelo;
     
+    /**
+     * Constructor de la ventana principal.
+     * 
+     * Inicializa la ventana, configura servidores por defecto y crea la interfaz.
+     */
     public VentanaComparativa() {
         setTitle("🔬 Comparativa: Secuencial vs Concurrente vs Paralelo (RMI)");
         setSize(1200, 800);
@@ -33,12 +102,26 @@ public class VentanaComparativa extends JFrame {
         crearInterfaz();
     }
     
+    /**
+     * Inicializa la lista de servidores RMI por defecto.
+     * 
+     * Configura dos servidores localhost en puertos 1099 y 1100.
+     * El usuario puede agregar más servidores desde la interfaz.
+     */
     private void inicializarServidores() {
         servidores = new ArrayList<>();
         servidores.add(new ConfiguracionServidor("localhost", 1099, "Servidor-1"));
         servidores.add(new ConfiguracionServidor("localhost", 1100, "Servidor-2"));
     }
     
+    /**
+     * Crea todos los componentes de la interfaz gráfica.
+     * 
+     * Organiza la ventana en tres secciones:
+     * - Norte: Panel de configuración
+     * - Centro: Tabs con resultados, hilos y logs
+     * - Sur: Botones de acción
+     */
     private void crearInterfaz() {
         // Panel superior - Configuración
         JPanel panelConfig = new JPanel(new BorderLayout(10, 10));
@@ -103,13 +186,23 @@ public class VentanaComparativa extends JFrame {
         panelBotones.add(btnLimpiar);
         add(panelBotones, BorderLayout.SOUTH);
         
-        // Eventos
+        // Configurar manejadores de eventos
         btnArchivo.addActionListener(e -> seleccionarArchivo());
         btnConfigServidores.addActionListener(e -> configurarServidores());
         btnEjecutar.addActionListener(e -> ejecutarComparativa());
         btnLimpiar.addActionListener(e -> limpiar());
     }
     
+    /**
+     * Crea el panel de resultados con tabla y métricas de speedup.
+     * 
+     * Incluye:
+     * - Barras de progreso para cada modo
+     * - Tabla de resultados con columnas de métricas
+     * - Labels de speedup con colores según rendimiento
+     * 
+     * @return Panel configurado con todos los componentes
+     */
     private JPanel crearPanelResultados() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -159,6 +252,12 @@ public class VentanaComparativa extends JFrame {
         return panel;
     }
     
+    /**
+     * Crea una barra de progreso con label.
+     * 
+     * @param label Texto descriptivo para la barra
+     * @return JProgressBar configurada
+     */
     private JProgressBar crearBarraProgreso(String label) {
         JProgressBar bar = new JProgressBar(0, 100);
         bar.setStringPainted(true);
@@ -166,6 +265,18 @@ public class VentanaComparativa extends JFrame {
         return bar;
     }
     
+    /**
+     * Crea el panel de estado de hilos/conexiones.
+     * 
+     * Muestra una tabla con:
+     * - Tipo (Secuencial/Concurrente/Paralelo-RMI)
+     * - ID o nombre del hilo/servidor
+     * - Estado actual (Ejecutando/Completado/Error)
+     * - Trabajo asignado (bytes)
+     * - Progreso (porcentaje)
+     * 
+     * @return Panel con tabla de hilos
+     */
     private JPanel crearPanelHilos() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -186,6 +297,9 @@ public class VentanaComparativa extends JFrame {
         return panel;
     }
     
+    /**
+     * Abre un diálogo para seleccionar el archivo de texto a procesar.
+     */
     private void seleccionarArchivo() {
         JFileChooser chooser = new JFileChooser();
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
@@ -195,6 +309,14 @@ public class VentanaComparativa extends JFrame {
         }
     }
     
+    /**
+     * Abre un diálogo para gestionar servidores RMI.
+     * 
+     * Permite:
+     * - Ver lista de servidores configurados
+     * - Agregar nuevos servidores (host, puerto, nombre)
+     * - Eliminar servidores existentes
+     */
     private void configurarServidores() {
         JDialog dialog = new JDialog(this, "⚙️ Configuración de Servidores RMI", true);
         dialog.setSize(500, 400);
@@ -262,6 +384,20 @@ public class VentanaComparativa extends JFrame {
         dialog.setVisible(true);
     }
     
+    /**
+     * Ejecuta la comparativa completa de los tres modos.
+     * 
+     * FLUJO:
+     * 1. Verificar que hay archivo seleccionado
+     * 2. Leer contenido del archivo
+     * 3. Ejecutar modo Secuencial y registrar tiempo
+     * 4. Ejecutar modo Concurrente con N hilos
+     * 5. Ejecutar modo Paralelo (RMI) con M servidores
+     * 6. Calcular speedup y eficiencia para cada modo
+     * 7. Mostrar resumen comparativo
+     * 
+     * Se ejecuta en un hilo separado para no bloquear la UI.
+     */
     private void ejecutarComparativa() {
         if (archivoSeleccionado == null) {
             JOptionPane.showMessageDialog(this, "⚠️ Selecciona un archivo primero");
@@ -372,6 +508,25 @@ public class VentanaComparativa extends JFrame {
         }).start();
     }
     
+    /**
+     * Ejecuta el modo Paralelo (RMI) distribuyendo trabajo entre servidores.
+     * 
+     * ALGORITMO:
+     * 1. Dividir el contenido en particiones (una por servidor)
+     * 2. Crear cliente RMI para cada servidor
+     * 3. Enviar partición a cada servidor de forma asíncrona
+     * 4. Esperar a que todos completen (CompletableFuture.allOf)
+     * 5. Sumar palabras de todos los servidores
+     * 6. Usar el tiempo MÁXIMO como tiempo total (procesamiento paralelo real)
+     * 
+     * NOTA IMPORTANTE:
+     * El tiempo usado es el del servidor más lento porque en procesamiento
+     * paralelo real, el resultado no está completo hasta que TODOS terminan.
+     * 
+     * @param contenido Texto completo a procesar
+     * @return ResultadoProcesamiento con total de palabras y tiempo máximo
+     * @throws Exception Si hay error de conexión o procesamiento
+     */
     private ResultadoProcesamiento ejecutarParalelo(String contenido) throws Exception {
         // Dividir el trabajo entre los servidores disponibles
         int numServidores = servidores.size();
@@ -441,6 +596,20 @@ public class VentanaComparativa extends JFrame {
                                          totalPalabras, tiempoMax);
     }
     
+    /**
+     * Divide el contenido en particiones para distribución entre servidores.
+     * 
+     * El texto se divide en partes aproximadamente iguales. La última partición
+     * puede ser ligeramente más grande para no perder caracteres por división entera.
+     * 
+     * NOTA: No busca límites de palabra, corta directamente por bytes.
+     * Esto puede causar que algunas palabras se cuenten parcialmente,
+     * pero el efecto es mínimo en archivos grandes.
+     * 
+     * @param contenido Texto completo
+     * @param numParticiones Número de partes a crear
+     * @return Lista de strings con las particiones
+     */
     private List<String> dividirTrabajoPorBytes(String contenido, int numParticiones) {
         List<String> particiones = new ArrayList<>();
         int tamañoTotal = contenido.length();
@@ -460,6 +629,21 @@ public class VentanaComparativa extends JFrame {
         return particiones;
     }
     
+    /**
+     * Agrega un resultado a la tabla de comparación.
+     * 
+     * Calcula y muestra:
+     * - Modo de procesamiento
+     * - Tiempo en milisegundos
+     * - Número de palabras
+     * - Velocidad (palabras/segundo)
+     * - Speedup respecto a secuencial
+     * - Eficiencia (speedup/unidades)
+     * 
+     * @param resultado ResultadoProcesamiento a agregar
+     * @param speedup Mejora respecto a secuencial
+     * @param eficiencia Eficiencia del paralelismo
+     */
     private void agregarResultado(ResultadoProcesamiento resultado, double speedup, double eficiencia) {
         SwingUtilities.invokeLater(() -> {
             DecimalFormat df = new DecimalFormat("#,###");
@@ -480,6 +664,15 @@ public class VentanaComparativa extends JFrame {
         });
     }
     
+    /**
+     * Actualiza o agrega una fila en la tabla de estado de hilos.
+     * 
+     * @param tipo Tipo de procesamiento (Secuencial/Concurrente/Paralelo-RMI)
+     * @param id Identificador del hilo o servidor
+     * @param estado Estado actual (Ejecutando/Completado/Error)
+     * @param trabajo Cantidad de trabajo asignado
+     * @param progreso Porcentaje completado
+     */
     private void actualizarTablaHilos(String tipo, String id, String estado, String trabajo, String progreso) {
         SwingUtilities.invokeLater(() -> {
             // Buscar si ya existe
@@ -497,6 +690,13 @@ public class VentanaComparativa extends JFrame {
         });
     }
     
+    /**
+     * Actualiza el valor y texto de una barra de progreso.
+     * 
+     * @param bar Barra de progreso a actualizar
+     * @param valor Porcentaje completado (0-100)
+     * @param texto Texto descriptivo del estado
+     */
     private void actualizarProgreso(JProgressBar bar, int valor, String texto) {
         SwingUtilities.invokeLater(() -> {
             bar.setValue(valor);
@@ -504,6 +704,19 @@ public class VentanaComparativa extends JFrame {
         });
     }
     
+    /**
+     * Actualiza el label de speedup con colores según rendimiento.
+     * 
+     * Colores:
+     * - Verde: speedup > 1.5x (buena mejora)
+     * - Naranja: speedup 1.0-1.5x (mejora moderada)
+     * - Rojo: speedup < 1.0x (peor que secuencial)
+     * 
+     * @param label Label a actualizar
+     * @param modo Nombre del modo (Concurrente/Paralelo)
+     * @param speedup Factor de mejora
+     * @param eficiencia Eficiencia del paralelismo
+     */
     private void actualizarSpeedup(JLabel label, String modo, double speedup, double eficiencia) {
         SwingUtilities.invokeLater(() -> {
             String color = speedup > 1.5 ? "green" : speedup > 1.0 ? "orange" : "red";
@@ -514,6 +727,16 @@ public class VentanaComparativa extends JFrame {
         });
     }
     
+    /**
+     * Limpia todos los resultados y resetea la interfaz.
+     * 
+     * Limpia:
+     * - Tabla de resultados
+     * - Tabla de hilos
+     * - Área de log
+     * - Barras de progreso
+     * - Labels de speedup
+     */
     private void limpiar() {
         modeloTabla.setRowCount(0);
         modeloHilos.setRowCount(0);
@@ -525,6 +748,11 @@ public class VentanaComparativa extends JFrame {
         lblSpeedupParalelo.setText("Speedup Paralelo: -");
     }
     
+    /**
+     * Escribe un mensaje en el área de log con timestamp.
+     * 
+     * @param mensaje Mensaje a registrar
+     */
     private void log(String mensaje) {
         SwingUtilities.invokeLater(() -> {
             String timestamp = String.format("[%tT] ", System.currentTimeMillis());
@@ -533,6 +761,16 @@ public class VentanaComparativa extends JFrame {
         });
     }
     
+    /**
+     * Punto de entrada principal de la aplicación.
+     * 
+     * Configura el Look and Feel del sistema operativo y muestra la ventana.
+     * 
+     * IMPORTANTE: Para archivos grandes (>100MB), usar el script run_gui.sh
+     * que configura la memoria apropiadamente (8GB heap).
+     * 
+     * @param args Argumentos de línea de comandos (no usados)
+     */
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
