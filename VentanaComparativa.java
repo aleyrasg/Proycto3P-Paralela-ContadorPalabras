@@ -421,17 +421,24 @@ public class VentanaComparativa extends JFrame {
             .mapToInt(ResultadoProcesamiento::getPalabras)
             .sum();
         
-        // CORRECCIÓN: Usar el tiempo MÁXIMO del servidor (paralelo = tiempo del más lento)
-        // NO el tiempo del cliente que incluye conexión y transferencia
-        long tiempoMaxServidor = tareas.stream()
+        // Calcular tiempos de los servidores
+        List<Long> tiempos = tareas.stream()
             .map(CompletableFuture::join)
             .filter(ResultadoProcesamiento::isExitoso)
-            .mapToLong(ResultadoProcesamiento::getTiempoMs)
-            .max()
-            .orElse(0);
+            .map(ResultadoProcesamiento::getTiempoMs)
+            .toList();
         
+        long tiempoMax = tiempos.stream().mapToLong(Long::longValue).max().orElse(0);
+        long tiempoSum = tiempos.stream().mapToLong(Long::longValue).sum();
+        long tiempoPromedio = tiempos.isEmpty() ? 0 : tiempoSum / tiempos.size();
+        
+        // Mostrar desglose en logs
+        log("   📊 Tiempos servidores - Max: " + tiempoMax + "ms, Promedio: " + tiempoPromedio + "ms, Suma: " + tiempoSum + "ms");
+        
+        // USAR EL TIEMPO MÁXIMO (el servidor más lento define el tiempo total en paralelo real)
+        // Pero si hay mucha diferencia, significa que hay desbalance
         return new ResultadoProcesamiento("Paralelo (" + servidores.size() + " servidores RMI)", 
-                                         totalPalabras, tiempoMaxServidor);
+                                         totalPalabras, tiempoMax);
     }
     
     private List<String> dividirTrabajoPorBytes(String contenido, int numParticiones) {

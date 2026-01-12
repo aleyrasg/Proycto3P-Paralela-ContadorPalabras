@@ -66,7 +66,12 @@ public class ContadorRemotoImpl extends UnicastRemoteObject implements IContador
         // SIEMPRE procesar en paralelo, sin límite mínimo
         int tamañoChunk = Math.max(1000, texto.length() / numHilos);
         AtomicInteger totalPalabras = new AtomicInteger(0);
+        AtomicInteger hilosActivos = new AtomicInteger(0); // Contador de hilos que realmente trabajan
         CountDownLatch latch = new CountDownLatch(numHilos);
+        
+        System.out.println("🧵 Iniciando procesamiento con " + numHilos + " hilos disponibles");
+        System.out.println("   📦 Texto: " + String.format("%,d", texto.length()) + " bytes");
+        System.out.println("   📦 Chunk por hilo: " + String.format("%,d", tamañoChunk) + " bytes");
         
         for (int i = 0; i < numHilos; i++) {
             int inicio = i * tamañoChunk;
@@ -77,11 +82,19 @@ public class ContadorRemotoImpl extends UnicastRemoteObject implements IContador
             int fin = Math.min(inicio + tamañoChunk, texto.length());
             
             final String chunk = texto.substring(inicio, fin);
+            final int hiloNum = i;
             
             executor.submit(() -> {
                 try {
+                    hilosActivos.incrementAndGet();
+                    System.out.println("   ▶️ Hilo-" + hiloNum + " procesando " + 
+                        String.format("%,d", chunk.length()) + " bytes");
+                    
                     int palabras = contarPalabrasRapido(chunk);
                     totalPalabras.addAndGet(palabras);
+                    
+                    System.out.println("   ✅ Hilo-" + hiloNum + " terminó: " + 
+                        String.format("%,d", palabras) + " palabras");
                 } finally {
                     latch.countDown();
                 }
@@ -89,10 +102,13 @@ public class ContadorRemotoImpl extends UnicastRemoteObject implements IContador
         }
         
         try {
-            latch.await(5, TimeUnit.SECONDS);
+            latch.await(30, TimeUnit.SECONDS); // Aumentado timeout
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        
+        System.out.println("🏁 Procesamiento completado: " + hilosActivos.get() + "/" + numHilos + 
+            " hilos usados, " + String.format("%,d", totalPalabras.get()) + " palabras totales");
         
         return totalPalabras.get();
     }

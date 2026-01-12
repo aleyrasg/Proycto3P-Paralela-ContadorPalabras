@@ -43,28 +43,30 @@ public class ProcesadorConcurrente {
                                          totalPalabras.get(), tiempo);
     }
     
-    // Método simple de conteo (sin optimizaciones agresivas)
+    // Método OPTIMIZADO de conteo (mismo algoritmo que el servidor RMI)
     private static int contarPalabras(String texto) {
         if (texto == null || texto.isEmpty()) return 0;
         
         int palabras = 0;
         boolean enPalabra = false;
+        int length = texto.length();
         
-        for (int i = 0; i < texto.length(); i++) {
+        for (int i = 0; i < length; i++) {
             char c = texto.charAt(i);
             
-            // Usar Character.isWhitespace (más lento que comparación directa)
-            if (Character.isWhitespace(c)) {
-                if (enPalabra) {
-                    palabras++;
-                    enPalabra = false;
-                }
+            // Comparación directa (más rápido que Character.isWhitespace)
+            boolean esEspacio = (c == ' ' || c == '\t' || c == '\n' || c == '\r');
+            
+            if (esEspacio) {
+                enPalabra = false;
             } else {
-                enPalabra = true;
+                if (!enPalabra) {
+                    palabras++;
+                    enPalabra = true;
+                }
             }
         }
         
-        if (enPalabra) palabras++;
         return palabras;
     }
 }
